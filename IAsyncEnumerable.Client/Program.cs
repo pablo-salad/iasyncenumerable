@@ -7,7 +7,8 @@ var host = await CreateClientAsync();
 var client = host.Services.GetRequiredService<IClusterClient>();
 
 var source = new CancellationTokenSource(3000);
-StartTicker(source.Token);
+var gcts = new GrainCancellationTokenSource();
+StartTicker(source.Token, gcts);
 await DoClientWorkAsync(client, source.Token);
 
 Console.WriteLine("done");
@@ -31,10 +32,10 @@ static async Task<IHost> CreateClientAsync()
     return host;
 }
 
-static async Task DoClientWorkAsync(IClusterClient client, CancellationToken cancellationToken)
+async Task DoClientWorkAsync(IClusterClient client, CancellationToken cancellationToken)
 {
     var counter = client.GetGrain<ICounter>(string.Empty);
-    var counterStream = counter.GetCount();
+    var counterStream = counter.GetCount(gcts.Token);
     await foreach (var c in counterStream.WithCancellation(cancellationToken))
     {
         Console.WriteLine($"counter: {c}");
@@ -42,7 +43,7 @@ static async Task DoClientWorkAsync(IClusterClient client, CancellationToken can
     Console.WriteLine("stream completed");
 }
 
-static async Task StartTicker(CancellationToken cancellationToken)
+static async Task StartTicker(CancellationToken cancellationToken, GrainCancellationTokenSource gcts)
 {
     while (true)
     {
@@ -54,6 +55,7 @@ static async Task StartTicker(CancellationToken cancellationToken)
         catch (OperationCanceledException)
         {
             Console.WriteLine("ticker stopped");
+            await gcts.Cancel();
             break;
         }
     }

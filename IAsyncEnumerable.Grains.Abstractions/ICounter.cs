@@ -1,7 +1,10 @@
-﻿namespace IAsyncEnumerable.Grains.Abstractions
+﻿using Orleans.Concurrency;
+
+namespace IAsyncEnumerable.Grains.Abstractions
 {
     public interface ICounter : IGrainWithStringKey
     {
-        IAsyncEnumerable<int> GetCount();
+        [AlwaysInterleave]
+        IAsyncEnumerable<int> GetCount(GrainCancellationToken cancellationToken);
     }
 }
