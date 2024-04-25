@@ -14,7 +14,7 @@ namespace IAsyncEnumerable.Grains
                 for (int i = 0; i < 100; i++)
                 {
                     await _jobChannel.Writer.WriteAsync(i, cancellationToken);
-                    await Task.Delay(1000, cancellationToken);
+                    await Task.Delay(250, cancellationToken);
                 }
             });
         }
@@ -26,6 +26,10 @@ namespace IAsyncEnumerable.Grains
             {
                 await foreach (var i in _jobChannel.Reader.ReadAllAsync())
                 {
+                    if (i == 0)
+                    {
+                        yield break;
+                    }
                     yield return i;
                 }
             }

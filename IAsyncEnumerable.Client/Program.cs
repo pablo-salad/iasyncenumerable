@@ -6,9 +6,25 @@ using Microsoft.Extensions.Logging;
 var host = await CreateClientAsync();
 var client = host.Services.GetRequiredService<IClusterClient>();
 
+
 var source = new CancellationTokenSource(3000);
-StartTicker(source.Token);
-await DoClientWorkAsync(client, source.Token);
+var linkedTokenSource =  CancellationTokenSource.CreateLinkedTokenSource(source.Token);
+var ticker = StartTicker(linkedTokenSource.Token);
+var counter = client.GetGrain<ICounter>(string.Empty);
+var counterStream = counter.GetCount();
+try
+{
+    await foreach (var c in counterStream.WithCancellation(source.Token))
+    {
+        Console.WriteLine($"counter: {c}");
+    }
+    Console.WriteLine("stream completed");
+    linkedTokenSource.Cancel();
+}
+finally
+{
+    await ticker;
+}
 
 Console.WriteLine("done");
 
@@ -29,17 +45,6 @@ static async Task<IHost> CreateClientAsync()
     await host.StartAsync();
 
     return host;
-}
-
-static async Task DoClientWorkAsync(IClusterClient client, CancellationToken cancellationToken)
-{
-    var counter = client.GetGrain<ICounter>(string.Empty);
-    var counterStream = counter.GetCount();
-    await foreach (var c in counterStream.WithCancellation(cancellationToken))
-    {
-        Console.WriteLine($"counter: {c}");
-    }
-    Console.WriteLine("stream completed");
 }
 
 static async Task StartTicker(CancellationToken cancellationToken)
